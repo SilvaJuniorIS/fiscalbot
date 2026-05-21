@@ -5,6 +5,9 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.web.dashboard import render_dashboard_page
 
+from scripts.seed import seed
+
+seed()
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
