@@ -7,8 +7,6 @@ from app.web.dashboard import render_dashboard_page
 
 from scripts.seed import seed
 
-seed()
-
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
     app.add_middleware(
@@ -27,6 +25,11 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["health"])
     def health_check() -> dict[str, str]:
         return {"status": "ok", "service": settings.app_name}
+
+    @app.get("/run-seed")
+    def run_seed():
+        seed()
+        return {"status": "seed executado"}
 
     return app
 
