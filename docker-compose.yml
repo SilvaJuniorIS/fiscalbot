@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: fiscalbot-postgres
+    environment:
+      POSTGRES_DB: fiscalbot
+      POSTGRES_USER: fiscalbot
+      POSTGRES_PASSWORD: fiscalbot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fiscalbot -d fiscalbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: fiscalbot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: fiscalbot-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://fiscalbot:fiscalbot@postgres:5432/fiscalbot
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - storage_data:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    container_name: fiscalbot-worker
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://fiscalbot:fiscalbot@postgres:5432/fiscalbot
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - .:/app
+      - storage_data:/app/storage
+    depends_on:
+      - api
+      - redis
+
+  beat:
+    build: .
+    container_name: fiscalbot-beat
+    command: celery -A app.core.celery_app.celery_app beat --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://fiscalbot:fiscalbot@postgres:5432/fiscalbot
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - .:/app
+    depends_on:
+      - worker
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
+  storage_data:

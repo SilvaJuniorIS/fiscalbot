@@ -1,0 +1,2 @@
+"""FiscalBot backend package."""
+

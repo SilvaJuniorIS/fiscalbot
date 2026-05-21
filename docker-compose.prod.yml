@@ -1,0 +1,21 @@
+services:
+  api:
+    deploy:
+      replicas: 2
+    restart: always
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    env_file: .env.prod
+
+  worker:
+    restart: always
+    env_file: .env.prod
+
+  beat:
+    restart: always
+    env_file: .env.prod
+
+  postgres:
+    restart: always
+
+  redis:
+    restart: always
