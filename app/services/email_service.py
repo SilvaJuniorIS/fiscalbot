@@ -19,9 +19,9 @@ def send_alert_email(user_email: str, alerta: Alerta, contrato: Contrato) -> boo
         )
         return False
 
-    dias = (contrato.termino - alerta.data_referencia).days if alerta.data_referencia else "—"
+    dias = (contrato.termino - alerta.data_referencia).days if alerta.data_referencia else "-"
     body = (
-        f"FiscalBot — Alerta de contrato\n\n"
+        f"FiscalBot - Alerta de contrato\n\n"
         f"Contrato: {contrato.numero}\n"
         f"Tipo: {alerta.tipo}\n"
         f"Titulo: {alerta.titulo}\n"

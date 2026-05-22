@@ -1,15 +1,21 @@
+import sys
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 from sqlalchemy import select
 
-from app.core.security import hash_password
-from app.db.session import Base, SessionLocal, engine
-from app.models.alerta import Alerta
-from app.models.contrato import Contrato
-from app.models.fornecedor import Fornecedor
-from app.models.secretaria import Secretaria
-from app.models.user import User
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from app.core.security import hash_password  # noqa: E402
+from app.db.session import Base, SessionLocal, engine  # noqa: E402
+from app.models.alerta import Alerta  # noqa: E402
+from app.models.contrato import Contrato  # noqa: E402
+from app.models.fornecedor import Fornecedor  # noqa: E402
+from app.models.secretaria import Secretaria  # noqa: E402
+from app.models.user import User  # noqa: E402
 
 
 def get_or_create(session, model, lookup: dict, defaults: dict | None = None):

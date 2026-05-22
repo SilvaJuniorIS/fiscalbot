@@ -1,0 +1,2 @@
+numero,orgao,objeto,valor,inicio,termino,secretaria,fornecedor,cnpj,fiscal_email,gestor_email,status
+900/2026,Prefeitura Municipal,Contrato exemplo para importacao,150000.00,2026-01-01,2026-12-31,Saude,Fornecedor Exemplo Ltda,12.345.678/0001-90,fiscal@fiscalbot.com,gestor@fiscalbot.com,ativo

@@ -1,21 +1,29 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../services/api'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
-import { fetchContrato } from '../services/contratos'
+import ConfirmModal from '../components/ui/ConfirmModal'
+import { deleteContrato, fetchContrato } from '../services/contratos'
 import { listDocumentos, uploadDocumento } from '../services/documentos'
+import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../hooks/useToast'
 import type { Anexo, Contrato, Ocorrencia } from '../types'
 
 export default function ContratoDetalhe() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { hasRole } = useAuth()
+  const { showToast, ToastView } = useToast()
   const contratoId = Number(id)
   const [contrato, setContrato] = useState<Contrato | null>(null)
   const [docs, setDocs] = useState<Anexo[]>([])
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [tipo, setTipo] = useState('contrato')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function load() {
     const [c, d, o] = await Promise.all([
@@ -42,15 +50,43 @@ export default function ContratoDetalhe() {
 
   if (!contrato) return <p className="text-slate-400">Carregando...</p>
 
+  async function onDelete() {
+    setDeleting(true)
+    try {
+      await deleteContrato(contratoId)
+      showToast('success', 'Contrato excluido.')
+      navigate('/contratos')
+    } catch {
+      showToast('error', 'Nao foi possivel excluir o contrato.')
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
+      <ToastView />
       <Link to="/contratos" className="text-sm text-emerald-400 hover:underline">
         &larr; Voltar
       </Link>
       <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{contrato.numero}</h1>
-          <Badge label={contrato.status} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold">{contrato.numero}</h1>
+            <Badge label={contrato.status} />
+          </div>
+          <div className="flex gap-2">
+            {hasRole('admin', 'gestor') && (
+              <Link to={`/contratos/${contrato.id}/editar`}>
+                <Button type="button" variant="ghost">Editar</Button>
+              </Link>
+            )}
+            {hasRole('admin') && (
+              <Button type="button" variant="danger" onClick={() => setConfirmDelete(true)}>
+                Excluir
+              </Button>
+            )}
+          </div>
         </div>
         <p className="mt-2 text-slate-300">{contrato.objeto}</p>
         <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
@@ -62,7 +98,7 @@ export default function ContratoDetalhe() {
             {Number(contrato.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           </p>
           <p>
-            <span className="text-slate-500">Vigencia:</span> {contrato.inicio} — {contrato.termino}
+            <span className="text-slate-500">Vigencia:</span> {contrato.inicio} - {contrato.termino}
           </p>
           <p>
             <span className="text-slate-500">Secretaria:</span> {contrato.secretaria?.nome}
@@ -136,6 +172,16 @@ export default function ContratoDetalhe() {
           {ocorrencias.length === 0 && <p className="text-slate-500">Nenhuma ocorrencia registrada.</p>}
         </ul>
       </section>
+
+      <ConfirmModal
+        open={confirmDelete}
+        title="Excluir contrato"
+        message={`Confirma a exclusao do contrato ${contrato.numero}? Essa acao nao pode ser desfeita.`}
+        confirmLabel="Excluir"
+        loading={deleting}
+        onConfirm={onDelete}
+        onClose={() => setConfirmDelete(false)}
+      />
     </div>
   )
 }

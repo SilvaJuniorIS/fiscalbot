@@ -9,6 +9,7 @@ from app.api.v1.routes import (
     documentos,
     fiscalizacao,
     fornecedores,
+    importacao,
     secretarias,
     users,
 )
@@ -24,3 +25,4 @@ api_router.include_router(alertas.router, prefix="/alertas", tags=["alertas"])
 api_router.include_router(documentos.router, tags=["documentos"])
 api_router.include_router(fiscalizacao.router, prefix="/fiscalizacao", tags=["fiscalizacao"])
 api_router.include_router(auditoria.router, prefix="/auditoria", tags=["auditoria"])
+api_router.include_router(importacao.router, prefix="/importacao", tags=["importacao"])

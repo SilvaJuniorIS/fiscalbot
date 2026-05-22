@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.fornecedor import FornecedorRead
 from app.schemas.secretaria import SecretariaRead
@@ -13,13 +13,22 @@ class ContratoBase(BaseModel):
     orgao: str = Field(max_length=180)
     objeto: str
     valor: Decimal = Field(ge=0)
-    inicio: date
-    termino: date
+    inicio: date = Field(validation_alias=AliasChoices("inicio", "data_inicio"))
+    termino: date = Field(validation_alias=AliasChoices("termino", "data_termino"))
     tags: str | None = None
     secretaria_id: int
     fornecedor_id: int
-    fiscal_responsavel_id: int | None = None
-    gestor_responsavel_id: int | None = None
+    fiscal_responsavel_id: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("fiscal_responsavel_id", "fiscal_id"),
+    )
+    gestor_responsavel_id: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("gestor_responsavel_id", "gestor_id"),
+    )
+    status: str | None = Field(default=None, max_length=40)
+
+    model_config = ConfigDict(populate_by_name=True)
 
     @model_validator(mode="after")
     def validate_periodo(self) -> "ContratoBase":
@@ -37,13 +46,28 @@ class ContratoUpdate(BaseModel):
     orgao: str | None = Field(default=None, max_length=180)
     objeto: str | None = None
     valor: Decimal | None = Field(default=None, ge=0)
-    inicio: date | None = None
-    termino: date | None = None
+    inicio: date | None = Field(
+        default=None,
+        validation_alias=AliasChoices("inicio", "data_inicio"),
+    )
+    termino: date | None = Field(
+        default=None,
+        validation_alias=AliasChoices("termino", "data_termino"),
+    )
     tags: str | None = None
     secretaria_id: int | None = None
     fornecedor_id: int | None = None
-    fiscal_responsavel_id: int | None = None
-    gestor_responsavel_id: int | None = None
+    fiscal_responsavel_id: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("fiscal_responsavel_id", "fiscal_id"),
+    )
+    gestor_responsavel_id: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("gestor_responsavel_id", "gestor_id"),
+    )
+    status: str | None = Field(default=None, max_length=40)
+
+    model_config = ConfigDict(populate_by_name=True)
 
     @model_validator(mode="after")
     def validate_periodo(self) -> "ContratoUpdate":
@@ -57,8 +81,14 @@ class ContratoFiltros(BaseModel):
     status: str | None = None
     secretaria_id: int | None = None
     fornecedor_id: int | None = None
-    fiscal_id: int | None = None
+    fiscal_responsavel_id: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("fiscal_responsavel_id", "fiscal_id"),
+    )
+
     vencendo_em_dias: int | None = Field(default=None, ge=1, le=365)
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ContratoRead(ContratoBase):
@@ -67,7 +97,7 @@ class ContratoRead(ContratoBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 UserOut = UserRead
@@ -80,7 +110,7 @@ class ContratoOut(ContratoRead):
     secretaria: SecretariaRead
     alertas_ativos: int = 0
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class SecretariaTotal(BaseModel):
@@ -100,3 +130,11 @@ class ContratoDashboard(BaseModel):
     em_risco: int
     por_secretaria: list[SecretariaTotal]
     por_status: list[StatusTotal]
+
+
+class ContratoPage(BaseModel):
+    items: list[ContratoOut]
+    total: int
+    page: int
+    limit: int
+    pages: int

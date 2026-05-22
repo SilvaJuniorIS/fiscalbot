@@ -7,7 +7,7 @@ celery_app = Celery(
     "fiscalbot",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.alertas"],
+    include=["app.tasks.alertas", "app.tasks.importacao"],
 )
 
 celery_app.conf.update(

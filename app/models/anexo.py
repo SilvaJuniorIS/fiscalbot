@@ -32,5 +32,9 @@ class Anexo(Base, TimestampMixin):
     uploaded_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     contrato = relationship("Contrato", back_populates="anexos")
-    uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
+    uploaded_by = relationship(
+        "User",
+        foreign_keys=[uploaded_by_id],
+        back_populates="anexos_enviados",
+    )
 

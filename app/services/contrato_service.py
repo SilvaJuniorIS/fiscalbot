@@ -68,7 +68,7 @@ def create_contrato(
     ip_address: str | None = None,
 ) -> ContratoOut:
     data = payload.model_dump()
-    data["status"] = calcular_status(payload.termino)
+    data["status"] = payload.status or calcular_status(payload.termino)
     contrato = contrato_repository.create(db, data)
     log_auditoria.registrar(
         db,
@@ -94,7 +94,7 @@ def update_contrato(
     antes = contrato_snapshot(contrato)
     updates = payload.model_dump(exclude_unset=True)
     termino = updates.get("termino", contrato.termino)
-    updates["status"] = calcular_status(termino)
+    updates["status"] = updates.get("status") or calcular_status(termino)
     contrato = contrato_repository.update(db, contrato, updates)
     log_auditoria.registrar(
         db,

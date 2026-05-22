@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.alerta import AlertaStatus
@@ -34,12 +34,40 @@ def _apply_filtros(stmt, filtros: ContratoFiltros, today: date):
         stmt = stmt.where(Contrato.secretaria_id == filtros.secretaria_id)
     if filtros.fornecedor_id is not None:
         stmt = stmt.where(Contrato.fornecedor_id == filtros.fornecedor_id)
-    if filtros.fiscal_id is not None:
-        stmt = stmt.where(Contrato.fiscal_responsavel_id == filtros.fiscal_id)
+    if filtros.fiscal_responsavel_id is not None:
+        stmt = stmt.where(Contrato.fiscal_responsavel_id == filtros.fiscal_responsavel_id)
     if filtros.vencendo_em_dias is not None:
         limite = today + timedelta(days=filtros.vencendo_em_dias)
         stmt = stmt.where(Contrato.termino >= today, Contrato.termino <= limite)
     return stmt
+
+
+def _apply_busca_textual(stmt, q: str | None):
+    if q:
+        term = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                Contrato.numero.ilike(term),
+                Contrato.orgao.ilike(term),
+                Contrato.objeto.ilike(term),
+                Contrato.tags.ilike(term),
+            )
+        )
+    return stmt
+
+
+def _apply_ordenacao(stmt, order_by: str, order_dir: str):
+    campos = {
+        "numero": Contrato.numero,
+        "orgao": Contrato.orgao,
+        "valor": Contrato.valor,
+        "inicio": Contrato.inicio,
+        "termino": Contrato.termino,
+        "status": Contrato.status,
+        "created_at": Contrato.created_at,
+    }
+    campo = campos.get(order_by, Contrato.termino)
+    return stmt.order_by(campo.desc() if order_dir == "desc" else campo.asc())
 
 
 def get_by_id(db: Session, contrato_id: int) -> Contrato | None:
@@ -78,15 +106,36 @@ def list_with_filters(
     *,
     page: int = 1,
     limit: int = 50,
+    q: str | None = None,
+    order_by: str = "termino",
+    order_dir: str = "asc",
     today: date | None = None,
 ) -> list[Contrato]:
     today = today or date.today()
     offset = (page - 1) * limit
-    stmt = _base_query().order_by(Contrato.termino.asc())
+    stmt = _base_query()
     stmt = _apply_scope(stmt, secretaria_ids)
     stmt = _apply_filtros(stmt, filtros, today)
+    stmt = _apply_busca_textual(stmt, q)
+    stmt = _apply_ordenacao(stmt, order_by, order_dir)
     stmt = stmt.limit(limit).offset(offset)
     return list(db.scalars(stmt).unique())
+
+
+def count_with_filters(
+    db: Session,
+    filtros: ContratoFiltros,
+    secretaria_ids: list[int] | None,
+    *,
+    q: str | None = None,
+    today: date | None = None,
+) -> int:
+    today = today or date.today()
+    stmt = select(func.count(Contrato.id))
+    stmt = _apply_scope(stmt, secretaria_ids)
+    stmt = _apply_filtros(stmt, filtros, today)
+    stmt = _apply_busca_textual(stmt, q)
+    return int(db.scalar(stmt) or 0)
 
 
 def count_by_status(

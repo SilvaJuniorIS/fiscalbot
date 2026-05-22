@@ -37,3 +37,14 @@ class User(Base, TimestampMixin):
         foreign_keys="Contrato.gestor_responsavel_id",
         back_populates="gestor_responsavel",
     )
+    ocorrencias_fiscalizadas = relationship(
+        "Ocorrencia",
+        foreign_keys="Ocorrencia.fiscal_id",
+        back_populates="fiscal",
+    )
+    anexos_enviados = relationship(
+        "Anexo",
+        foreign_keys="Anexo.uploaded_by_id",
+        back_populates="uploaded_by",
+    )
+    logs_auditoria = relationship("LogAuditoria", back_populates="user")

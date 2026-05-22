@@ -17,4 +17,4 @@ class LogAuditoria(Base, TimestampMixin):
     depois: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
-    user = relationship("User")
+    user = relationship("User", back_populates="logs_auditoria")

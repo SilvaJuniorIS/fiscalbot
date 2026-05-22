@@ -53,4 +53,8 @@ class Ocorrencia(Base, TimestampMixin):
     plano_acao: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     contrato = relationship("Contrato", back_populates="ocorrencias")
-    fiscal = relationship("User", foreign_keys=[fiscal_id])
+    fiscal = relationship(
+        "User",
+        foreign_keys=[fiscal_id],
+        back_populates="ocorrencias_fiscalizadas",
+    )

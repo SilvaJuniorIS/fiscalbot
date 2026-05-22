@@ -90,7 +90,7 @@ def verificar_reajustes(db: Session, referencia: date | None = None) -> int:
             Alerta(
                 contrato_id=contrato.id,
                 tipo=tipo,
-                titulo=f"Reajuste anual pendente — contrato {contrato.numero}",
+                titulo=f"Reajuste anual pendente - contrato {contrato.numero}",
                 mensagem="Contrato elegivel a reajuste anual sem aditivo registrado.",
                 data_referencia=aniversario,
                 status=AlertaStatus.pendente.value,
