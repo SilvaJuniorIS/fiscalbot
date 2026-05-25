@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import Fiscalizacao from './pages/Fiscalizacao'
 import ImportacaoContratos from './pages/ImportacaoContratos'
 import Login from './pages/Login'
+import Vitrine from './pages/Vitrine'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -20,6 +21,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/vitrine" element={<Vitrine />} />
         <Route path="/login" element={<Login />} />
         <Route
           path="/"

@@ -91,6 +91,16 @@ pytest tests/ -v
 - Fiscalizacao (ocorrencias por contrato)
 - Auditoria (logs — apenas admin)
 
+## Gestao de Contratos
+
+O modulo novo usa a tabela `contracts` e endpoints em `/api/v1/contracts`.
+
+- **Upload:** a tela **Contratos > Importar Planilha** aceita arquivos `.xls` e `.xlsx` com envio por clique ou drag and drop.
+- **Importacao:** o importador limpa cabecalhos, remove acentos/quebras/duplicacoes, ignora linhas em branco e titulos de secao, extrai CPF/CNPJ, converte datas e moeda brasileira e calcula `dias_para_vencimento`.
+- **Alertas:** os campos `alerta_30`, `alerta_15`, `alerta_07` e `alerta_01` ficam disponiveis para a rotina diaria de vencimentos.
+- **Filtros:** a listagem paginada filtra por `vencendo_em_30`, `secretaria`, `status` e `fornecedor`.
+- **Exportacao:** o detalhe do contrato oferece exportacao visual via PDF do navegador; os endpoints dedicados CSV/XLSX/PDF entram na etapa seguinte do modulo.
+
 ## Producao
 
 ```bash

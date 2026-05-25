@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 const nav = [
   { to: '/', label: 'Dashboard' },
   { to: '/contratos', label: 'Contratos' },
-  { to: '/importacao/contratos', label: 'Importar Contratos' },
+  { to: '/importacao/contratos', label: 'Importar Planilha' },
   { to: '/alertas', label: 'Alertas' },
   { to: '/fiscalizacao', label: 'Fiscalizacao' },
 ]

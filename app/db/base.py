@@ -2,6 +2,7 @@ from app.db.session import Base
 from app.models.alerta import Alerta
 from app.models.anexo import Anexo
 from app.models.contrato import Contrato
+from app.models.contract import Contract, ContractImportLog
 from app.models.fornecedor import Fornecedor
 from app.models.indicador import Indicador
 from app.models.log_auditoria import LogAuditoria
@@ -14,6 +15,8 @@ __all__ = [
     "Anexo",
     "Base",
     "Contrato",
+    "Contract",
+    "ContractImportLog",
     "Fornecedor",
     "Indicador",
     "LogAuditoria",

@@ -4,6 +4,7 @@ from app.api.v1.routes import (
     alertas,
     auditoria,
     auth,
+    contracts,
     contratos,
     dashboard,
     documentos,
@@ -21,6 +22,7 @@ api_router.include_router(secretarias.router, prefix="/secretarias", tags=["secr
 api_router.include_router(fornecedores.router, prefix="/fornecedores", tags=["fornecedores"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(contratos.router, prefix="/contratos", tags=["contratos"])
+api_router.include_router(contracts.router, prefix="/contracts", tags=["contracts"])
 api_router.include_router(alertas.router, prefix="/alertas", tags=["alertas"])
 api_router.include_router(documentos.router, tags=["documentos"])
 api_router.include_router(fiscalizacao.router, prefix="/fiscalizacao", tags=["fiscalizacao"])

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import { useAuth } from '../hooks/useAuth'
 
@@ -56,6 +56,9 @@ export default function Login() {
         <p className="mt-4 text-center text-xs text-slate-500">
           Demo: admin@fiscalbot.gov.br / fiscalbot123
         </p>
+        <Link to="/vitrine" className="mt-3 block text-center text-xs text-emerald-300 hover:underline">
+          Conhecer a vitrine do produto
+        </Link>
       </form>
     </div>
   )
