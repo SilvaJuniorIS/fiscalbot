@@ -25,5 +25,9 @@ celery_app.conf.update(
             "task": "app.tasks.alertas.checar_reajustes",
             "schedule": crontab(hour=7, minute=5),
         },
+        "check-contract-expiration-diario": {
+            "task": "app.tasks.alertas.check_contract_expiration",
+            "schedule": crontab(hour=8, minute=0),
+        },
     },
 )

@@ -67,7 +67,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     def health_check():
-        return {"status": "ok"}
+        return {"status": "ok", "service": settings.app_name}
 
     @app.get("/run-seed")
     def run_seed():

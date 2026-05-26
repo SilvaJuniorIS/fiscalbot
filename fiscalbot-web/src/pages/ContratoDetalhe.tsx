@@ -88,9 +88,9 @@ export default function ContratoDetalhe() {
           </div>
           <div className="flex gap-2">
             {hasRole('admin', 'gestor') && (
-              <Button type="button" variant="ghost" onClick={() => showToast('success', 'Edicao manual sera aberta na proxima etapa.')}>
-                Editar
-              </Button>
+              <Link to={`/contratos/${contract.id}/editar`}>
+                <Button type="button" variant="ghost">Editar</Button>
+              </Link>
             )}
             <Button type="button" variant="ghost" onClick={() => window.print()}>
               Exportar PDF

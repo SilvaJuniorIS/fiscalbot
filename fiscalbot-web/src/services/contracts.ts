@@ -31,3 +31,19 @@ export async function updateContract(id: string, payload: Partial<Contract>) {
 export async function deleteContract(id: string) {
   await api.delete(`/api/v1/contracts/${id}`)
 }
+
+export async function downloadContractsExport(
+  format: 'csv' | 'xlsx' | 'pdf',
+  params?: Record<string, string | number | boolean | undefined>,
+) {
+  const { data } = await api.get<Blob>(`/api/v1/contracts/export/${format}`, {
+    params,
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(data)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `contratos.${format}`
+  anchor.click()
+  URL.revokeObjectURL(url)
+}

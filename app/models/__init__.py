@@ -6,6 +6,7 @@ from .contract import Contract, ContractImportLog
 from .fornecedor import Fornecedor
 from .indicador import Indicador
 from .log_auditoria import LogAuditoria
+from .notification import Notification
 from .ocorrencia import Ocorrencia
 from .secretaria import Secretaria
 from .user import User
@@ -19,6 +20,7 @@ __all__ = [
     "Fornecedor",
     "Indicador",
     "LogAuditoria",
+    "Notification",
     "Ocorrencia",
     "Secretaria",
     "User",

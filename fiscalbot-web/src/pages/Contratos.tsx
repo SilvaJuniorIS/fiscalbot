@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
-import { fetchContracts, fetchContractsDashboard } from '../services/contracts'
+import { downloadContractsExport, fetchContracts, fetchContractsDashboard } from '../services/contracts'
 import type { Contract, ContractDashboard } from '../types'
 
 function expirationClass(days?: number | null) {
@@ -47,6 +47,12 @@ export default function Contratos() {
   }, [page, status, secretaria, fornecedor, vencendo30])
 
   const pages = Math.max(1, Math.ceil(total / 20))
+  const exportParams = {
+    status: status || undefined,
+    secretaria: secretaria || undefined,
+    fornecedor: fornecedor || undefined,
+    vencendo_em_30: vencendo30 || undefined,
+  }
 
   return (
     <div className="space-y-5">
@@ -115,6 +121,17 @@ export default function Contratos() {
             />
             Vencendo em 30
           </label>
+        </div>
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={() => downloadContractsExport('csv', exportParams)}>
+            Exportar CSV
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => downloadContractsExport('xlsx', exportParams)}>
+            Exportar XLSX
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => downloadContractsExport('pdf', exportParams)}>
+            Exportar PDF
+          </Button>
         </div>
       </section>
 

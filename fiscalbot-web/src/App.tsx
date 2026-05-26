@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import Alertas from './pages/Alertas'
 import ContratoDetalhe from './pages/ContratoDetalhe'
 import ContratoForm from './pages/ContratoForm'
+import ContractForm from './pages/ContractForm'
 import Contratos from './pages/Contratos'
 import Dashboard from './pages/Dashboard'
 import Fiscalizacao from './pages/Fiscalizacao'
@@ -51,7 +52,7 @@ export default function App() {
           path="/contratos/:id/editar"
           element={
             <PrivateRoute>
-              <ContratoForm />
+              <ContractForm />
             </PrivateRoute>
           }
         />
