@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth'
 
 const nav = [
   { to: '/', label: 'Dashboard' },
-  { to: '/contratos', label: 'Contratos' },
+  { to: '/contratos', label: 'Contratos e atas' },
   { to: '/importacao/contratos', label: 'Importar Planilha' },
   { to: '/alertas', label: 'Alertas' },
   { to: '/fiscalizacao', label: 'Fiscalizacao' },
