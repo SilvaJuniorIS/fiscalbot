@@ -97,6 +97,9 @@ class ContractDashboard(BaseModel):
     vencendo_em_15: int
     vencidos: int
     valor_total_contratado: Decimal
+    por_secretaria: list[dict[str, str | int]] = Field(default_factory=list)
+    por_status: list[dict[str, str | int]] = Field(default_factory=list)
+    ultimos_contratos: list[ContractRead] = Field(default_factory=list)
 
 
 class ContractImportResult(BaseModel):

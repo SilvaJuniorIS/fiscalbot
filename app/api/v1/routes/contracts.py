@@ -1,5 +1,6 @@
 import csv
 from collections.abc import Iterable
+from datetime import date, timedelta
 from io import BytesIO, StringIO
 from math import ceil
 from typing import Annotated
@@ -107,16 +108,20 @@ def contracts_dashboard(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ) -> ContractDashboard:
+    today = date.today()
     vencendo_30 = select(func.count(Contract.id)).where(
-        Contract.dias_para_vencimento >= 0,
-        Contract.dias_para_vencimento <= 30,
+        Contract.fim_vigencia >= today,
+        Contract.fim_vigencia <= today + timedelta(days=30),
     )
     vencendo_15 = select(func.count(Contract.id)).where(
-        Contract.dias_para_vencimento >= 0,
-        Contract.dias_para_vencimento <= 15,
+        Contract.fim_vigencia >= today,
+        Contract.fim_vigencia <= today + timedelta(days=15),
     )
-    vencidos = select(func.count(Contract.id)).where(Contract.dias_para_vencimento < 0)
-    ativos = select(func.count(Contract.id)).where(Contract.status == "ativo")
+    vencidos = select(func.count(Contract.id)).where(Contract.fim_vigencia < today)
+    ativos = select(func.count(Contract.id)).where(
+        Contract.status == "ativo",
+        or_(Contract.fim_vigencia >= today, Contract.fim_vigencia.is_(None)),
+    )
     valor = select(func.coalesce(func.sum(Contract.valor_total), 0))
     return ContractDashboard(
         contratos_ativos=int(db.scalar(ativos) or 0),
@@ -124,6 +129,27 @@ def contracts_dashboard(
         vencendo_em_15=int(db.scalar(vencendo_15) or 0),
         vencidos=int(db.scalar(vencidos) or 0),
         valor_total_contratado=db.scalar(valor) or 0,
+        por_secretaria=[
+            {"nome": nome or "Sem secretaria", "total": total}
+            for nome, total in db.execute(
+                select(Contract.secretaria, func.count(Contract.id))
+                .group_by(Contract.secretaria)
+                .order_by(func.count(Contract.id).desc(), Contract.secretaria)
+            )
+        ],
+        por_status=[
+            {"status": status or "Sem status", "total": total}
+            for status, total in db.execute(
+                select(Contract.status, func.count(Contract.id))
+                .group_by(Contract.status)
+                .order_by(func.count(Contract.id).desc(), Contract.status)
+            )
+        ],
+        ultimos_contratos=list(
+            db.scalars(
+                select(Contract).order_by(Contract.created_at.desc(), Contract.id.desc()).limit(5)
+            )
+        ),
     )
 
 
@@ -181,7 +207,9 @@ def export_contracts_xlsx(
         sheet.append(row)
     for column_cells in sheet.columns:
         max_length = max(len(str(cell.value or "")) for cell in column_cells)
-        sheet.column_dimensions[column_cells[0].column_letter].width = min(max(max_length + 2, 12), 45)
+        sheet.column_dimensions[column_cells[0].column_letter].width = min(
+            max(max_length + 2, 12), 45
+        )
     buffer = BytesIO()
     workbook.save(buffer)
     buffer.seek(0)

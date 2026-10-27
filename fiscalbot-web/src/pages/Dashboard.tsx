@@ -3,19 +3,20 @@ import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis
 import { Link } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Card from '../components/ui/Card'
-import { fetchContratos, fetchDashboard } from '../services/contratos'
-import type { Contrato, ContratoDashboard } from '../types'
+import { fetchContractsDashboard } from '../services/contracts'
+import type { ContractDashboard } from '../types'
 
 const PIE_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#64748b', '#3b82f6']
 
 export default function Dashboard() {
-  const [dash, setDash] = useState<ContratoDashboard | null>(null)
-  const [contratos, setContratos] = useState<Contrato[]>([])
+  const [dash, setDash] = useState<ContractDashboard | null>(null)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
-    fetchDashboard().then(setDash)
-    fetchContratos({ limit: 5, page: 1 }).then(setContratos)
+    fetchContractsDashboard().then(setDash).catch(() => setError(true))
   }, [])
+
+  if (error) return <p role="alert" className="text-red-400">Nao foi possivel carregar o dashboard. Atualize a pagina para tentar novamente.</p>
 
   if (!dash) return <p className="text-slate-400">Carregando dashboard...</p>
 
@@ -23,22 +24,22 @@ export default function Dashboard() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Dashboard gerencial</h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card title="Contratos ativos" value={dash.ativos} />
-        <Card title="Vencendo em 30 dias" value={dash.vencendo_30} />
+        <Card title="Contratos ativos" value={dash.contratos_ativos} />
+        <Card title="Vencendo em 30 dias" value={dash.vencendo_em_30} />
         <Card
           title="Valor total"
-          value={Number(dash.valor_total).toLocaleString('pt-BR', {
+          value={Number(dash.valor_total_contratado).toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL',
           })}
         />
-        <Card title="Em risco" value={dash.em_risco} />
+        <Card title="Vencidos" value={dash.vencidos} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
           <h2 className="mb-3 text-sm font-medium text-slate-300">Por secretaria</h2>
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={dash.por_secretaria}>
+            <BarChart data={dash.por_secretaria ?? []}>
               <XAxis dataKey="nome" tick={{ fill: '#94a3b8', fontSize: 11 }} />
               <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
               <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155' }} />
@@ -50,8 +51,8 @@ export default function Dashboard() {
           <h2 className="mb-3 text-sm font-medium text-slate-300">Por status</h2>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
-              <Pie data={dash.por_status} dataKey="total" nameKey="status" cx="50%" cy="50%" outerRadius={80}>
-                {dash.por_status.map((_, i) => (
+              <Pie data={dash.por_status ?? []} dataKey="total" nameKey="status" cx="50%" cy="50%" outerRadius={80}>
+                {(dash.por_status ?? []).map((_, i) => (
                   <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                 ))}
               </Pie>
@@ -71,17 +72,17 @@ export default function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {contratos.map((c) => (
+            {(dash.ultimos_contratos ?? []).map((c) => (
               <tr key={c.id} className="border-t border-slate-800">
                 <td className="py-2">
                   <Link className="text-emerald-400 hover:underline" to={`/contratos/${c.id}`}>
-                    {c.numero}
+                    {c.numero_contrato}
                   </Link>
                 </td>
                 <td>
-                  <Badge label={c.status} />
+                  <Badge label={c.status || 'Sem status'} />
                 </td>
-                <td className="text-slate-400">{c.termino}</td>
+                <td className="text-slate-400">{c.fim_vigencia || 'Sem data'}</td>
               </tr>
             ))}
           </tbody>

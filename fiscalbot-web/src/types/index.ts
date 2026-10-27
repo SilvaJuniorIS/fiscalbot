@@ -163,6 +163,9 @@ export type ContractDashboard = {
   vencendo_em_15: number
   vencidos: number
   valor_total_contratado: string
+  por_secretaria: { nome: string; total: number }[]
+  por_status: { status: string; total: number }[]
+  ultimos_contratos: Contract[]
 }
 
 export type ContractImportResult = {
