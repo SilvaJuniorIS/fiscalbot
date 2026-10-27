@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
@@ -15,6 +15,11 @@ function expirationClass(days?: number | null) {
 }
 
 export default function Contratos() {
+  const [search] = useSearchParams()
+  const [tipo, setTipo] = useState(search.get('tipo') || '')
+  const [situacao, setSituacao] = useState(search.get('situacao') || '')
+  const [incompletos, setIncompletos] = useState(search.get('incompletos') === 'true')
+  const [error, setError] = useState('')
   const [items, setItems] = useState<Contract[]>([])
   const [dashboard, setDashboard] = useState<ContractDashboard | null>(null)
   const [total, setTotal] = useState(0)
@@ -31,7 +36,10 @@ export default function Contratos() {
 
   useEffect(() => {
     setLoading(true)
+    setError('')
+    let active = true
     fetchContracts({
+      tipo: tipo || undefined, situacao: situacao || undefined, incompletos: incompletos || undefined,
       page,
       limit: 20,
       status: status || undefined,
@@ -40,14 +48,18 @@ export default function Contratos() {
       vencendo_em_30: vencendo30 || undefined,
     })
       .then((result) => {
+        if (!active) return
         setItems(result.items)
         setTotal(result.total)
       })
-      .finally(() => setLoading(false))
-  }, [page, status, secretaria, fornecedor, vencendo30])
+      .catch(() => { if (active) setError('Nao foi possivel carregar os registros. Tente novamente.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [page, status, secretaria, fornecedor, vencendo30, tipo, situacao, incompletos])
 
   const pages = Math.max(1, Math.ceil(total / 20))
   const exportParams = {
+    tipo: tipo || undefined, situacao: situacao || undefined, incompletos: incompletos || undefined,
     status: status || undefined,
     secretaria: secretaria || undefined,
     fornecedor: fornecedor || undefined,
@@ -57,7 +69,7 @@ export default function Contratos() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Contratos</h1>
+        <h1 className="text-2xl font-semibold">Contratos e atas</h1>
         <Link to="/importacao/contratos">
           <Button type="button">Importar Planilha</Button>
         </Link>
@@ -78,10 +90,19 @@ export default function Contratos() {
       </div>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+        <div className="mb-3 flex flex-wrap gap-3">
+          <select aria-label="Tipo de instrumento" className="input" value={tipo} onChange={e => { setTipo(e.target.value); setPage(1) }}>
+            <option value="">Contratos e atas</option><option value="contrato">Contratos</option><option value="ata">Atas</option>
+          </select>
+          <select aria-label="Situacao de vencimento" className="input" value={situacao} onChange={e => { setSituacao(e.target.value); setPage(1) }}>
+            <option value="">Todas as situacoes</option><option value="ativo">Em dia</option><option value="vencendo">Vencendo em 30 dias</option><option value="vencido">Vencidos</option><option value="sem_vencimento">Sem vencimento</option><option value="suspenso">Suspensos</option><option value="encerrado">Encerrados</option>
+          </select>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={incompletos} onChange={e => { setIncompletos(e.target.checked); setPage(1) }} />Somente dados incompletos</label>
+        </div>
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_160px_170px]">
           <input
             className="input"
-            placeholder="Filtrar por fornecedor"
+            placeholder="Buscar numero, fornecedor ou CNPJ"
             value={fornecedor}
             onChange={(e) => {
               setFornecedor(e.target.value)
@@ -135,11 +156,12 @@ export default function Contratos() {
         </div>
       </section>
 
+      {error && <p role="alert" className="text-red-400">{error}</p>}
       <div className="overflow-x-auto rounded-lg border border-slate-800">
         <table className="w-full min-w-[900px] text-sm">
           <thead className="bg-slate-900 text-slate-400">
             <tr>
-              <th className="px-4 py-3 text-left">Contrato</th>
+              <th className="px-4 py-3 text-left">Tipo / Numero</th>
               <th className="px-4 py-3 text-left">Fornecedor</th>
               <th className="px-4 py-3 text-left">Secretaria</th>
               <th className="px-4 py-3 text-left">Fiscal</th>
@@ -153,8 +175,9 @@ export default function Contratos() {
               <tr key={contract.id} className="border-t border-slate-800 hover:bg-slate-900/50">
                 <td className="px-4 py-3">
                   <Link to={`/contratos/${contract.id}`} className="text-emerald-400 hover:underline">
-                    {contract.numero_contrato || 'Sem numero'}
+                    {contract.tipo === 'ata' ? 'Ata' : 'Contrato'} · {contract.numero_contrato || 'Sem numero'}
                   </Link>
+                  {!!contract.dados_pendentes?.length && <p className="mt-1 text-xs text-amber-400" title={contract.dados_pendentes.join(', ')}>Revisar: {contract.dados_pendentes.join(', ')}</p>}
                 </td>
                 <td className="max-w-xs truncate px-4 py-3">{contract.fornecedor}</td>
                 <td className="px-4 py-3">{contract.secretaria}</td>
@@ -166,11 +189,11 @@ export default function Contratos() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge label={contract.status || 'sem_status'} />
+                  <Badge label={contract.situacao || contract.status || 'sem_status'} />
                 </td>
               </tr>
             ))}
-            {!loading && items.length === 0 && (
+            {!loading && !error && items.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   Nenhum contrato encontrado.

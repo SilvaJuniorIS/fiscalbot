@@ -114,6 +114,9 @@ export type FiscalizacaoResumo = {
 }
 
 export type Contract = {
+  tipo: 'contrato' | 'ata'
+  situacao: string
+  dados_pendentes: string[]
   id: string
   status?: string | null
   numero_contrato?: string | null
@@ -158,6 +161,13 @@ export type ContractListResult = {
 }
 
 export type ContractDashboard = {
+  total_registros: number
+  total_contratos: number
+  total_atas: number
+  dados_incompletos: number
+  grupos_duplicados: number
+  prioridades: Contract[]
+  duplicados: Contract[]
   contratos_ativos: number
   vencendo_em_30: number
   vencendo_em_15: number
@@ -169,6 +179,10 @@ export type ContractDashboard = {
 }
 
 export type ContractImportResult = {
+  atualizados: number
+  duplicados: number
+  simulacao: boolean
+  previa: { linha: number; acao: string; tipo: string; numero: string; fornecedor: string; vencimento: string | null; valor: string | null }[]
   importados: number
   ignorados: number
   erros: number

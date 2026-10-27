@@ -3,7 +3,7 @@ from collections.abc import Iterable
 from datetime import date, timedelta
 from io import BytesIO, StringIO
 from math import ceil
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -26,11 +26,13 @@ from app.schemas.contract import (
     ContractRead,
     ContractUpdate,
 )
-from app.services.contract_import_service import import_contracts, persist_upload
+from app.services.contract_import_service import contract_identity, import_contracts, persist_upload
+from app.services.contract_quality import missing_expression, situation_expression
 
 router = APIRouter()
 
 EXPORT_COLUMNS = [
+    ("tipo", "Tipo"),
     ("numero_contrato", "Contrato"),
     ("fornecedor", "Fornecedor"),
     ("cnpj", "CNPJ"),
@@ -38,7 +40,7 @@ EXPORT_COLUMNS = [
     ("fiscal", "Fiscal"),
     ("fim_vigencia", "Vencimento"),
     ("dias_para_vencimento", "Dias restantes"),
-    ("status", "Status"),
+    ("situacao", "Situacao"),
     ("valor_total", "Valor total"),
 ]
 
@@ -56,6 +58,9 @@ def _get_contract(db: Session, contract_id: UUID) -> Contract:
 
 def _filtered_stmt(
     *,
+    tipo: Literal["contrato", "ata"] | None = None,
+    situacao: str | None = None,
+    incompletos: bool = False,
     vencendo_em_30: bool = False,
     secretaria: str | None = None,
     status_filter: str | None = None,
@@ -63,15 +68,27 @@ def _filtered_stmt(
 ):
     stmt = select(Contract)
     conditions = []
+    if tipo:
+        conditions.append(Contract.tipo == tipo)
+    if situacao:
+        conditions.append(situation_expression() == situacao)
+    if incompletos:
+        conditions.append(missing_expression())
     if vencendo_em_30:
-        conditions.extend([Contract.dias_para_vencimento >= 0, Contract.dias_para_vencimento <= 30])
+        conditions.append(situation_expression() == "vencendo")
     if secretaria:
         conditions.append(Contract.secretaria.ilike(f"%{secretaria}%"))
     if status_filter:
         conditions.append(Contract.status == status_filter)
     if fornecedor:
         term = f"%{fornecedor}%"
-        conditions.append(or_(Contract.fornecedor.ilike(term), Contract.cnpj.ilike(term)))
+        conditions.append(
+            or_(
+                Contract.fornecedor.ilike(term),
+                Contract.cnpj.ilike(term),
+                Contract.numero_contrato.ilike(term),
+            )
+        )
     if conditions:
         stmt = stmt.where(*conditions)
     return stmt
@@ -81,8 +98,9 @@ def _contract_export_rows(contracts: Iterable[Contract]) -> list[list[str]]:
     rows = []
     for contract in contracts:
         row = []
+        serialized = ContractRead.model_validate(contract)
         for field, _label in EXPORT_COLUMNS:
-            value = getattr(contract, field)
+            value = getattr(serialized, field)
             row.append("" if value is None else str(value))
         rows.append(row)
     return rows
@@ -92,15 +110,35 @@ def _contract_export_rows(contracts: Iterable[Contract]) -> list[list[str]]:
 async def import_contracts_endpoint(
     current_user: Annotated[User, Depends(require_roles(UserRole.admin, UserRole.gestor))],
     db: Annotated[Session, Depends(get_db)],
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File()],
+    modo: Literal["ignorar", "atualizar"] = "ignorar",
+    preview: bool = False,
 ) -> dict:
     try:
-        path = await persist_upload(file.filename or "contratos.xlsx", await file.read())
-        result = import_contracts(path, db, usuario=current_user.email)
+        content = await file.read(10 * 1024 * 1024 + 1)
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Use planilhas de ate 10 MB")
+        path = await persist_upload(file.filename or "contratos.xlsx", content)
+        try:
+            result = import_contracts(
+                path, db, usuario=current_user.email, modo=modo, preview=preview
+            )
+        finally:
+            path.unlink(missing_ok=True)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     result.pop("contracts", None)
     return result
+
+
+@router.post("/import/preview")
+async def preview_contracts_endpoint(
+    current_user: Annotated[User, Depends(require_roles(UserRole.admin, UserRole.gestor))],
+    db: Annotated[Session, Depends(get_db)],
+    file: Annotated[UploadFile, File()],
+    modo: Literal["ignorar", "atualizar"] = "ignorar",
+) -> dict:
+    return await import_contracts_endpoint(current_user, db, file, modo=modo, preview=True)
 
 
 @router.get("/dashboard", response_model=ContractDashboard)
@@ -109,21 +147,51 @@ def contracts_dashboard(
     _: Annotated[User, Depends(get_current_user)],
 ) -> ContractDashboard:
     today = date.today()
+    current_situation = situation_expression(today)
     vencendo_30 = select(func.count(Contract.id)).where(
-        Contract.fim_vigencia >= today,
-        Contract.fim_vigencia <= today + timedelta(days=30),
+        situation_expression(today) == "vencendo",
     )
     vencendo_15 = select(func.count(Contract.id)).where(
-        Contract.fim_vigencia >= today,
+        situation_expression(today) == "vencendo",
         Contract.fim_vigencia <= today + timedelta(days=15),
     )
-    vencidos = select(func.count(Contract.id)).where(Contract.fim_vigencia < today)
+    vencidos = select(func.count(Contract.id)).where(situation_expression(today) == "vencido")
     ativos = select(func.count(Contract.id)).where(
-        Contract.status == "ativo",
-        or_(Contract.fim_vigencia >= today, Contract.fim_vigencia.is_(None)),
+        situation_expression(today).in_(["ativo", "vencendo"]),
     )
     valor = select(func.coalesce(func.sum(Contract.valor_total), 0))
+    from collections import Counter
+
+    records = list(db.scalars(select(Contract).order_by(Contract.created_at, Contract.id)))
+    identities = Counter(key for item in records if (key := contract_identity(item)) is not None)
     return ContractDashboard(
+        total_registros=int(db.scalar(select(func.count(Contract.id))) or 0),
+        total_contratos=int(
+            db.scalar(select(func.count(Contract.id)).where(Contract.tipo == "contrato")) or 0
+        ),
+        total_atas=int(
+            db.scalar(select(func.count(Contract.id)).where(Contract.tipo == "ata")) or 0
+        ),
+        dados_incompletos=int(
+            db.scalar(select(func.count(Contract.id)).where(missing_expression())) or 0
+        ),
+        grupos_duplicados=sum(count > 1 for count in identities.values()),
+        duplicados=_serialize(
+            [item for item in records if identities.get(contract_identity(item), 0) > 1][:20]
+        ),
+        prioridades=_serialize(
+            db.scalars(
+                select(Contract)
+                .where(
+                    or_(
+                        situation_expression(today).in_(["vencido", "vencendo"]),
+                        missing_expression(),
+                    )
+                )
+                .order_by(Contract.fim_vigencia.asc().nulls_last(), Contract.id)
+                .limit(10)
+            )
+        ),
         contratos_ativos=int(db.scalar(ativos) or 0),
         vencendo_em_30=int(db.scalar(vencendo_30) or 0),
         vencendo_em_15=int(db.scalar(vencendo_15) or 0),
@@ -140,12 +208,12 @@ def contracts_dashboard(
         por_status=[
             {"status": status or "Sem status", "total": total}
             for status, total in db.execute(
-                select(Contract.status, func.count(Contract.id))
-                .group_by(Contract.status)
-                .order_by(func.count(Contract.id).desc(), Contract.status)
+                select(current_situation, func.count(Contract.id))
+                .group_by(current_situation)
+                .order_by(func.count(Contract.id).desc())
             )
         ],
-        ultimos_contratos=list(
+        ultimos_contratos=_serialize(
             db.scalars(
                 select(Contract).order_by(Contract.created_at.desc(), Contract.id.desc()).limit(5)
             )
@@ -157,6 +225,9 @@ def contracts_dashboard(
 def export_contracts_csv(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
+    tipo: Literal["contrato", "ata"] | None = None,
+    situacao: str | None = None,
+    incompletos: bool = False,
     vencendo_em_30: bool = False,
     secretaria: Annotated[str | None, Query(max_length=120)] = None,
     status_filter: Annotated[str | None, Query(alias="status", max_length=50)] = None,
@@ -164,6 +235,9 @@ def export_contracts_csv(
 ) -> StreamingResponse:
     contracts = db.scalars(
         _filtered_stmt(
+            tipo=tipo,
+            situacao=situacao,
+            incompletos=incompletos,
             vencendo_em_30=vencendo_em_30,
             secretaria=secretaria,
             status_filter=status_filter,
@@ -186,6 +260,9 @@ def export_contracts_csv(
 def export_contracts_xlsx(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
+    tipo: Literal["contrato", "ata"] | None = None,
+    situacao: str | None = None,
+    incompletos: bool = False,
     vencendo_em_30: bool = False,
     secretaria: Annotated[str | None, Query(max_length=120)] = None,
     status_filter: Annotated[str | None, Query(alias="status", max_length=50)] = None,
@@ -193,6 +270,9 @@ def export_contracts_xlsx(
 ) -> StreamingResponse:
     contracts = db.scalars(
         _filtered_stmt(
+            tipo=tipo,
+            situacao=situacao,
+            incompletos=incompletos,
             vencendo_em_30=vencendo_em_30,
             secretaria=secretaria,
             status_filter=status_filter,
@@ -224,6 +304,9 @@ def export_contracts_xlsx(
 def export_contracts_pdf(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
+    tipo: Literal["contrato", "ata"] | None = None,
+    situacao: str | None = None,
+    incompletos: bool = False,
     vencendo_em_30: bool = False,
     secretaria: Annotated[str | None, Query(max_length=120)] = None,
     status_filter: Annotated[str | None, Query(alias="status", max_length=50)] = None,
@@ -232,6 +315,9 @@ def export_contracts_pdf(
     contracts = list(
         db.scalars(
             _filtered_stmt(
+                tipo=tipo,
+                situacao=situacao,
+                incompletos=incompletos,
                 vencendo_em_30=vencendo_em_30,
                 secretaria=secretaria,
                 status_filter=status_filter,
@@ -274,6 +360,9 @@ def export_contracts_pdf(
 def list_contracts(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
+    tipo: Literal["contrato", "ata"] | None = None,
+    situacao: str | None = None,
+    incompletos: bool = False,
     vencendo_em_30: bool = False,
     secretaria: Annotated[str | None, Query(max_length=120)] = None,
     status_filter: Annotated[str | None, Query(alias="status", max_length=50)] = None,
@@ -282,6 +371,9 @@ def list_contracts(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ContractPage:
     stmt = _filtered_stmt(
+        tipo=tipo,
+        situacao=situacao,
+        incompletos=incompletos,
         vencendo_em_30=vencendo_em_30,
         secretaria=secretaria,
         status_filter=status_filter,
@@ -320,12 +412,19 @@ def update_contract(
     _: Annotated[User, Depends(require_roles(UserRole.admin, UserRole.gestor))],
 ) -> ContractRead:
     contract = _get_contract(db, contract_id)
+    if "tipo" in payload.model_fields_set and payload.tipo is None:
+        raise HTTPException(status_code=422, detail="Tipo nao pode ser vazio")
+    expiration_changed = (
+        "fim_vigencia" in payload.model_fields_set and payload.fim_vigencia != contract.fim_vigencia
+    )
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(contract, field, value)
-    if payload.fim_vigencia is not None:
+    if expiration_changed:
         from app.services.contract_import_service import calculate_days_to_expiration
 
         contract.dias_para_vencimento = calculate_days_to_expiration(payload.fim_vigencia)
+        for flag in ("alerta_30", "alerta_15", "alerta_07", "alerta_01"):
+            setattr(contract, flag, False)
     db.add(contract)
     db.commit()
     db.refresh(contract)

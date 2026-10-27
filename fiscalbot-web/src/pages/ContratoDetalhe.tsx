@@ -10,6 +10,9 @@ import type { Contract } from '../types'
 
 const labels: Record<keyof Contract, string> = {
   id: 'ID',
+  tipo: 'Tipo de instrumento',
+  situacao: 'Situacao atual',
+  dados_pendentes: 'Dados pendentes de revisao',
   status: 'Status',
   numero_contrato: 'Contrato',
   numero_aditivo: 'Aditivo',
@@ -84,7 +87,7 @@ export default function ContratoDetalhe() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold">{contract.numero_contrato || 'Contrato'}</h1>
-            <Badge label={contract.status || 'sem_status'} />
+            <Badge label={contract.situacao || contract.status || 'sem_status'} />
           </div>
           <div className="flex gap-2">
             {hasRole('admin', 'gestor') && (
@@ -109,7 +112,7 @@ export default function ContratoDetalhe() {
         {(Object.keys(labels) as (keyof Contract)[]).map((key) => (
           <div key={key} className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
             <p className="text-xs uppercase text-slate-500">{labels[key]}</p>
-            <p className="mt-1 break-words text-sm text-slate-200">{String(contract[key] ?? '-')}</p>
+            <p className="mt-1 break-words text-sm text-slate-200">{Array.isArray(contract[key]) ? (contract[key] as string[]).join(', ') || 'Nenhum' : String(contract[key] ?? '-')}</p>
           </div>
         ))}
       </section>

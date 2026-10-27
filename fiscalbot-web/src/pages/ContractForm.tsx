@@ -80,6 +80,11 @@ export default function ContractForm() {
         </Button>
       </div>
 
+      <label className="block text-sm">Tipo de instrumento
+        <select className="input mt-2" value={contract.tipo || 'contrato'} onChange={e => updateField('tipo', e.target.value)}>
+          <option value="contrato">Contrato</option><option value="ata">Ata</option>
+        </select>
+      </label>
       <section className="grid gap-4 md:grid-cols-2">
         {fields.map((field) => (
           <label key={field.key} className={field.multiline ? 'md:col-span-2' : ''}>

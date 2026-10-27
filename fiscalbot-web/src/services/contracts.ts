@@ -1,10 +1,10 @@
 import api from './api'
 import type { Contract, ContractDashboard, ContractImportResult, ContractListResult } from '../types'
 
-export async function importContracts(file: File) {
+export async function importContracts(file: File, modo: 'ignorar' | 'atualizar' = 'ignorar', preview = false) {
   const form = new FormData()
   form.append('file', file)
-  const { data } = await api.post<ContractImportResult>('/api/v1/contracts/import', form)
+  const { data } = await api.post<ContractImportResult>(preview ? '/api/v1/contracts/import/preview' : '/api/v1/contracts/import', form, { params: { modo } })
   return data
 }
 

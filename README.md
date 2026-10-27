@@ -2,6 +2,9 @@
 
 Plataforma GovTech para gestao, fiscalizacao e inteligencia de contratos publicos.
 
+Veja [Saneamento de contratos e atas](docs/saneamento_contratos.md) para importacao com
+previa, tratamento de duplicados, separacao de instrumentos e indicadores de qualidade.
+
 ## Pre-requisitos
 
 - Docker e Docker Compose **ou**

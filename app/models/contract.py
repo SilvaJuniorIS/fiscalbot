@@ -1,8 +1,6 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
-
-from datetime import datetime
 
 from sqlalchemy import Boolean, Date, DateTime, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -15,6 +13,9 @@ class Contract(Base, TimestampMixin):
     __tablename__ = "contracts"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tipo: Mapped[str] = mapped_column(
+        String(20), default="contrato", server_default="contrato", index=True
+    )
     status: Mapped[str | None] = mapped_column(String(50), index=True)
     numero_contrato: Mapped[str | None] = mapped_column(String(50), index=True)
     numero_aditivo: Mapped[str | None] = mapped_column(String(50))

@@ -1,11 +1,13 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ContractBase(BaseModel):
+    tipo: Literal["contrato", "ata"] = "contrato"
     status: str | None = Field(default=None, max_length=50)
     numero_contrato: str | None = Field(default=None, max_length=50)
     numero_aditivo: str | None = Field(default=None, max_length=50)
@@ -43,6 +45,7 @@ class ContractCreate(ContractBase):
 
 
 class ContractUpdate(BaseModel):
+    tipo: Literal["contrato", "ata"] | None = None
     status: str | None = Field(default=None, max_length=50)
     numero_contrato: str | None = Field(default=None, max_length=50)
     numero_aditivo: str | None = Field(default=None, max_length=50)
@@ -80,6 +83,43 @@ class ContractRead(ContractBase):
     created_at: datetime
     updated_at: datetime
 
+    situacao: str = "ativo"
+    dados_pendentes: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def classify(self):
+        self.dias_para_vencimento = (
+            (self.fim_vigencia - date.today()).days if self.fim_vigencia else None
+        )
+        administrative = (self.status or "").lower()
+        if administrative in {"encerrado", "suspenso", "cancelado"}:
+            self.situacao = administrative
+        elif self.dias_para_vencimento is None:
+            self.situacao = "sem_vencimento"
+        elif self.dias_para_vencimento < 0:
+            self.situacao = "vencido"
+        elif self.dias_para_vencimento <= 30:
+            self.situacao = "vencendo"
+        else:
+            self.situacao = "ativo"
+        labels = {
+            "numero_contrato": "Numero",
+            "fornecedor": "Fornecedor",
+            "secretaria": "Secretaria",
+            "objeto": "Objeto",
+            "fim_vigencia": "Vencimento",
+            "valor_total": "Valor",
+            "gestor": "Gestor",
+            "fiscal": "Fiscal",
+        }
+        self.dados_pendentes = [
+            label
+            for field, label in labels.items()
+            if getattr(self, field) is None
+            or (isinstance(getattr(self, field), str) and not getattr(self, field).strip())
+        ]
+        return self
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -92,6 +132,13 @@ class ContractPage(BaseModel):
 
 
 class ContractDashboard(BaseModel):
+    total_registros: int = 0
+    total_contratos: int = 0
+    total_atas: int = 0
+    dados_incompletos: int = 0
+    grupos_duplicados: int = 0
+    duplicados: list[ContractRead] = Field(default_factory=list)
+    prioridades: list[ContractRead] = Field(default_factory=list)
     contratos_ativos: int
     vencendo_em_30: int
     vencendo_em_15: int
@@ -103,6 +150,8 @@ class ContractDashboard(BaseModel):
 
 
 class ContractImportResult(BaseModel):
+    atualizados: int = 0
+    duplicados: int = 0
     importados: int
     ignorados: int
     erros: int

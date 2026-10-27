@@ -24,6 +24,12 @@ export default function Dashboard() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Dashboard gerencial</h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link to="/contratos"><Card title="Registros cadastrados" value={dash.total_registros ?? 0} /></Link>
+        <Link to="/contratos?tipo=contrato"><Card title="Contratos" value={dash.total_contratos ?? 0} /></Link>
+        <Link to="/contratos?tipo=ata"><Card title="Atas" value={dash.total_atas ?? 0} /></Link>
+        <Link to="/contratos?incompletos=true"><Card title="Dados incompletos" value={dash.dados_incompletos ?? 0} /></Link>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card title="Contratos ativos" value={dash.contratos_ativos} />
         <Card title="Vencendo em 30 dias" value={dash.vencendo_em_30} />
         <Card
@@ -61,8 +67,22 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+      <section className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
+        <h2 className="font-medium">O que precisa de atencao hoje</h2>
+        <p className="mt-1 text-xs text-slate-400">Ate 10 registros por vencimento, incluindo dados incompletos. A situacao e calculada na consulta.</p>
+        <div className="mt-3 space-y-3">{(dash.prioridades ?? []).map(c => <div key={c.id} className="border-t border-slate-800 pt-2 text-sm">
+          <Link className="text-emerald-400" to={`/contratos/${c.id}`}>{c.tipo === 'ata' ? 'Ata' : 'Contrato'} · {c.numero_contrato || 'Sem numero'}</Link>
+          <span className="ml-3 text-slate-300">{c.situacao} · {c.fim_vigencia || 'Sem vencimento'}</span>
+          {!!c.dados_pendentes?.length && <p className="text-xs text-amber-400">Revisar: {c.dados_pendentes.join(', ')}</p>}
+        </div>)}{!dash.prioridades?.length && <p className="text-sm text-slate-400">Nenhuma prioridade encontrada.</p>}</div>
+      </section>
+      {!!dash.grupos_duplicados && <section className="rounded-xl border border-amber-800 p-4">
+        <h2 className="font-medium text-amber-300">{dash.grupos_duplicados} grupos com possiveis duplicados</h2>
+        <p className="text-sm text-slate-400">Nenhum registro foi excluido automaticamente. Confira os detalhes antes de alterar. Exibindo ate 20 registros.</p>
+        <ul className="mt-3 space-y-2">{(dash.duplicados ?? []).map(c => <li key={c.id}><Link className="text-sm text-emerald-400" to={`/contratos/${c.id}`}>{c.tipo} · {c.numero_contrato} · {c.fornecedor} · {c.secretaria}</Link></li>)}</ul>
+      </section>}
       <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
-        <h2 className="mb-3 text-sm font-medium text-slate-300">Ultimos contratos</h2>
+        <h2 className="mb-3 text-sm font-medium text-slate-300">Ultimos contratos e atas</h2>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-500">
@@ -80,7 +100,7 @@ export default function Dashboard() {
                   </Link>
                 </td>
                 <td>
-                  <Badge label={c.status || 'Sem status'} />
+                  <Badge label={c.situacao || c.status || 'Sem status'} />
                 </td>
                 <td className="text-slate-400">{c.fim_vigencia || 'Sem data'}</td>
               </tr>
