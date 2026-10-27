@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isAxiosError } from 'axios'
 import type { FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import Button from '../components/ui/Button'
@@ -6,8 +7,8 @@ import { useAuth } from '../hooks/useAuth'
 
 export default function Login() {
   const { login, isAuthenticated } = useAuth()
-  const [email, setEmail] = useState('admin@fiscalbot.gov.br')
-  const [password, setPassword] = useState('fiscalbot123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -19,8 +20,14 @@ export default function Login() {
     setError('')
     try {
       await login(email, password)
-    } catch {
-      setError('Credenciais invalidas')
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        setError('E-mail ou senha incorretos.')
+      } else if (isAxiosError(error) && !error.response) {
+        setError('Nao foi possivel conectar a API. Ela pode estar iniciando; aguarde um minuto e tente novamente.')
+      } else {
+        setError('Nao foi possivel entrar. Confira a configuracao da API e tente novamente.')
+      }
     } finally {
       setLoading(false)
     }
@@ -36,6 +43,9 @@ export default function Login() {
         <p className="mt-1 text-sm text-slate-400">Gestao e fiscalizacao de contratos publicos</p>
         <div className="mt-6 space-y-3">
           <input
+            type="email"
+            autoComplete="username"
+            required
             className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -43,6 +53,8 @@ export default function Login() {
           />
           <input
             type="password"
+            autoComplete="current-password"
+            required
             className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -54,7 +66,7 @@ export default function Login() {
           {loading ? 'Entrando...' : 'Entrar'}
         </Button>
         <p className="mt-4 text-center text-xs text-slate-500">
-          Demo: admin@fiscalbot.gov.br / fiscalbot123
+          Use o e-mail e a senha definidos na configuracao do administrador.
         </p>
         <Link to="/vitrine" className="mt-3 block text-center text-xs text-emerald-300 hover:underline">
           Conhecer a vitrine do produto
