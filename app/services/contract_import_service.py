@@ -373,6 +373,14 @@ def import_contracts(
                     "Informe numero e fornecedor para identificar o registro com seguranca"
                 )
             matches = known.get(key, [])
+            # Enrich a previously simplified import without creating a second instrument.
+            # Never replace a known amendment, or choose between ambiguous existing rows.
+            if not matches and modo == "atualizar" and key[-1]:
+                matches = [
+                    candidate
+                    for candidate in known.get((*key[:-1], ""), [])
+                    if contract_identity(candidate)[-1] == ""
+                ]
             action = "novo"
             if key in seen:
                 result.duplicados += 1
@@ -395,6 +403,7 @@ def import_contracts(
                             # Blank cells never erase existing values or administrative status.
                             if value is not None and field != "status":
                                 setattr(existing, field, value)
+                        known[key] = [existing]
                 else:
                     action = "duplicado_ambiguo" if len(matches) > 1 else "ignorar_existente"
                     result.ignorados += 1

@@ -279,3 +279,36 @@ def test_unchanged_expiration_preserves_alert_flags(client, auth_headers, db_ses
     )
     assert response.status_code == 200
     assert response.json()["alerta_30"] is True
+
+
+def test_enrichment_fills_missing_amendment_without_duplicate(client, auth_headers, db_session):
+    contract = Contract(
+        tipo="contrato", numero_contrato="22/21", fornecedor="Empresa", secretaria="Saude"
+    )
+    db_session.add(contract)
+    db_session.commit()
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Contrato", "Fornecedor", "Secretaria", "Aditivo", "Gestor"])
+    sheet.append(["22/21", "Empresa", "Saude", "4º Aditivo", "Joao"])
+    content = BytesIO()
+    workbook.save(content)
+    files = {"file": ("completo.xlsx", content.getvalue(), "application/octet-stream")}
+    preview = client.post(
+        "/api/v1/contracts/import/preview?modo=atualizar", headers=auth_headers, files=files
+    )
+    assert preview.json()["atualizados"] == 1
+    assert preview.json()["importados"] == 0
+    response = client.post(
+        "/api/v1/contracts/import?modo=atualizar", headers=auth_headers, files=files
+    )
+    assert response.json()["atualizados"] == 1
+    assert response.json()["importados"] == 0
+    assert db_session.scalar(select(func.count(Contract.id))) == 1
+    db_session.refresh(contract)
+    assert contract.numero_aditivo == "4º Aditivo"
+    assert contract.gestor == "Joao"
+    again = client.post(
+        "/api/v1/contracts/import?modo=atualizar", headers=auth_headers, files=files
+    )
+    assert again.json()["importados"] == 0
