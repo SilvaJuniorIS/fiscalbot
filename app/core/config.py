@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +23,14 @@ class Settings(BaseSettings):
     admin_email: str = "admin@fiscalbot.gov.br"
     admin_password: str = "fiscalbot123"
     celery_enabled: bool = True
+
+    @field_validator("database_url")
+    @classmethod
+    def use_psycopg_driver(cls, value: str) -> str:
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
 
     model_config = SettingsConfigDict(
         env_file=".env",

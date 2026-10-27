@@ -1,0 +1,13 @@
+.git
+.venv
+.env
+.env.*
+**/.env
+**/.env.*
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+**/*.egg-info
+fiscalbot-web/dist
+storage

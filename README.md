@@ -103,6 +103,10 @@ O modulo novo usa a tabela `contracts` e endpoints em `/api/v1/contracts`.
 
 ## Producao
 
+Para uma demonstracao com Vercel, Render e Neon, veja
+[Deploy gratuito](docs/deploy_gratuito.md). Essa configuracao dispensa Redis e Celery,
+usa alertas manuais e armazenamento temporario de documentos.
+
 ```bash
 cp .env.example .env.prod   # ajuste segredos
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build

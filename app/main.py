@@ -12,8 +12,6 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.web.dashboard import render_dashboard_page
 
-from scripts.seed import seed
-
 logger = logging.getLogger("fiscalbot")
 
 
@@ -68,11 +66,6 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health_check():
         return {"status": "ok", "service": settings.app_name}
-
-    @app.get("/run-seed")
-    def run_seed():
-        seed()
-        return {"status": "seed executado"}
 
     return app
 

@@ -1,14 +1,23 @@
+import json
 from pathlib import Path
 from typing import Annotated, Any
+from uuid import uuid4
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_scoped_secretaria_ids, require_roles
 from app.core.celery_app import celery_app
+from app.core.config import settings
+from app.db.session import get_db
 from app.models.user import User, UserRole
-from app.services.importacao_service import diretorio_importacoes, salvar_upload_importacao
+from app.services.importacao_service import (
+    diretorio_importacoes,
+    processar_importacao_contratos,
+    salvar_upload_importacao,
+)
 from app.tasks.importacao import importar_contratos
 
 router = APIRouter()
@@ -18,7 +27,8 @@ router = APIRouter()
 async def importar_contratos_endpoint(
     current_user: Annotated[User, Depends(require_roles(UserRole.admin, UserRole.gestor))],
     scoped_secretaria_ids: Annotated[list[int] | None, Depends(get_scoped_secretaria_ids)],
-    file: UploadFile = File(...),
+    db: Annotated[Session, Depends(get_db)],
+    file: Annotated[UploadFile, File()],
     modo: Annotated[str, Query(pattern="^(append|overwrite)$")] = "append",
 ) -> dict[str, Any]:
     try:
@@ -29,6 +39,13 @@ async def importar_contratos_endpoint(
     scope = scoped_secretaria_ids
     if current_user.role == UserRole.gestor.value and current_user.secretaria_id is not None:
         scope = [current_user.secretaria_id]
+
+    if not settings.celery_enabled:
+        task_id = uuid4().hex
+        processar_importacao_contratos(
+            db, task_id=task_id, path=str(path), modo=modo, scoped_secretaria_ids=scope
+        )
+        return {"task_id": task_id, "status": "success"}
 
     task = importar_contratos.delay(str(path), modo, scope)
     return {"task_id": task.id, "status": "queued"}
@@ -51,7 +68,9 @@ def download_relatorio_importacao(
 ) -> FileResponse:
     path = diretorio_importacoes() / task_id / "relatorio.csv"
     if not path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Relatorio nao encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Relatorio nao encontrado"
+        )
     return FileResponse(path, filename=f"relatorio_importacao_{task_id}.csv", media_type="text/csv")
 
 
@@ -60,6 +79,17 @@ def status_importacao_contratos(
     task_id: str,
     _: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
+    if not settings.celery_enabled:
+        if len(task_id) != 32 or any(char not in "0123456789abcdef" for char in task_id):
+            raise HTTPException(status_code=404, detail="Importacao nao encontrada")
+        report = diretorio_importacoes() / task_id / "relatorio.json"
+        if not report.is_file():
+            raise HTTPException(status_code=404, detail="Importacao nao encontrada")
+        return {
+            "task_id": task_id,
+            "status": "success",
+            "resultado": json.loads(report.read_text(encoding="utf-8")),
+        }
     result = AsyncResult(task_id, app=celery_app)
     payload: dict[str, Any] = {"task_id": task_id, "status": result.status.lower()}
     if result.failed():
